@@ -1,6 +1,7 @@
 import time
 import functools
 import tensorflow as tf
+import os.path as osp
 
 from baselines import logger
 
@@ -93,8 +94,9 @@ def learn(
     epsilon=1e-5,
     alpha=0.99,
     gamma=0.99,
-    log_interval=100,
+    log_interval=500,
     load_path=None,
+    save_interval=500,
     **network_kwargs):
 
     '''
@@ -174,5 +176,10 @@ def learn(
             logger.record_tabular("explained_variance", float(ev))
             logger.record_tabular("Latest Reward", latest_reward)
             logger.dump_tabular()
+        if save_interval and (update % save_interval == 0 or update == 1) and logger.get_dir():
+            savepath = osp.join(logger.get_dir(), 'checkpoint%.5i'%update)
+            print('Saving to', savepath)
+            model.save(savepath)
+
     env.close()
     return model

@@ -207,15 +207,16 @@ def main():
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
-        logger.configure(dir='results/'+args.alg+'_'+str(args.num_timesteps)+'_'+time.strftime("%Y%m%d-%H%M%S"))
+        logger.configure(dir='../results/'+args.alg+'_'+str(args.network)+'_'+str(args.num_timesteps))
     else:
         logger.configure(format_strs = [])
         rank = MPI.COMM_WORLD.Get_rank()
 
     model, _ = train(args, extra_args)
 
-    if args.save_path is not None and rank == 0:
-        save_path = osp.expanduser(args.save_path)
+    if args.save_path:
+        save_path = logger.get_dir()+'/final/'+args.alg
+        print('saving final model to: '+save_path)
         model.save(save_path)
 
 
@@ -237,4 +238,7 @@ def main():
 if __name__ == '__main__':
     starttime = time.time()
     main()
-    print(time.time()-starttime)
+    f = open(logger.get_dir()+'/time.txt','w')
+    f.write(str(time.time()-starttime)+' seconds')
+    print(str(time.time()-starttime)+' seconds')
+    f.close()

@@ -92,7 +92,7 @@ class Model(object):
         self.initial_state = step_model.initial_state
         tf.global_variables_initializer().run(session=sess)
 
-def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interval=25, nprocs=32, nsteps=20,
+def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interval=50, nprocs=32, nsteps=20,
                  ent_coef=0.01, vf_coef=0.5, vf_fisher_coef=1.0, lr=0.25, max_grad_norm=0.5,
                  kfac_clip=0.001, save_interval=100, lrschedule='linear', load_path=None, **network_kwargs):
     set_global_seeds(seed)

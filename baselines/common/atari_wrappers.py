@@ -6,6 +6,7 @@ import gym
 from gym import spaces
 import cv2
 cv2.ocl.setUseOpenCL(False)
+from baselines import logger
 
 class NoopResetEnv(gym.Wrapper):
     def __init__(self, env, noop_max=30):
@@ -220,7 +221,7 @@ def make_atari(env_id):
     env = MaxAndSkipEnv(env, skip=4)
     return env
 
-def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, scale=False):
+def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, scale=False, monitor=True):
     """Configure environment for DeepMind-style Atari.
     """
     if episode_life:
@@ -234,5 +235,6 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
         env = ClipRewardEnv(env)
     if frame_stack:
         env = FrameStack(env, 4)
+    if monitor:
+        env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%10==0)
     return env
-
