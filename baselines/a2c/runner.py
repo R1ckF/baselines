@@ -9,7 +9,7 @@ class Runner(AbstractEnvRunner):
         self.gamma = gamma
         self.batch_action_shape = [x if x is not None else -1 for x in model.train_model.action.shape.as_list()]
         self.ob_dtype = model.train_model.X.dtype.as_numpy_dtype
-    
+
     def run(self):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
         mb_states = self.states
@@ -19,7 +19,7 @@ class Runner(AbstractEnvRunner):
             mb_actions.append(actions)
             mb_values.append(values)
             mb_dones.append(self.dones)
-            obs, rewards, dones, _ = self.env.step(actions)
+            obs, rewards, dones, infos = self.env.step(actions)
             self.states = states
             self.dones = dones
             for n, done in enumerate(dones):
@@ -27,6 +27,7 @@ class Runner(AbstractEnvRunner):
                     self.obs[n] = self.obs[n]*0
             self.obs = obs
             mb_rewards.append(rewards)
+            latest_reward =  sum(info['latest'] for info in infos)/float(len(infos))
         mb_dones.append(self.dones)
         #batch of steps to batch of rollouts
 
@@ -51,10 +52,10 @@ class Runner(AbstractEnvRunner):
                     rewards = discount_with_dones(rewards, dones, self.gamma)
 
                 mb_rewards[n] = rewards
-    
+
         mb_actions = mb_actions.reshape(self.batch_action_shape)
 
         mb_rewards = mb_rewards.flatten()
         mb_values = mb_values.flatten()
         mb_masks = mb_masks.flatten()
-        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
+        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values, latest_reward

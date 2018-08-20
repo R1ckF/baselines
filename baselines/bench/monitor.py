@@ -41,7 +41,8 @@ class Monitor(Wrapper):
         self.episode_times = []
         self.total_steps = 0
         self.current_reset_info = {} # extra info about the current episode, that was passed in during reset()
-
+        self.latest_reward = 0
+        
     def reset(self, **kwargs):
         if not self.allow_early_resets and not self.needs_reset:
             raise RuntimeError("Tried to reset an environment before done. If you want to allow early resets, wrap your env with Monitor(env, path, allow_early_resets=True)")
@@ -62,6 +63,7 @@ class Monitor(Wrapper):
         if done:
             self.needs_reset = True
             eprew = sum(self.rewards)
+            self.latest_reward = eprew
             eplen = len(self.rewards)
             epinfo = {"r": round(eprew, 6), "l": eplen, "t": round(time.time() - self.tstart, 6)}
             for k in self.info_keywords:
@@ -75,6 +77,7 @@ class Monitor(Wrapper):
                 self.f.flush()
             info['episode'] = epinfo
         self.total_steps += 1
+        info['latest'] = self.latest_reward
         return (ob, rew, done, info)
 
     def close(self):
@@ -102,7 +105,7 @@ def get_monitor_files(dir):
 def load_results(dir):
     import pandas
     monitor_files = (
-        glob(osp.join(dir, "*monitor.json")) + 
+        glob(osp.join(dir, "*monitor.json")) +
         glob(osp.join(dir, "*monitor.csv"))) # get both csv and (old) json files
     if not monitor_files:
         raise LoadMonitorResultsError("no monitor files of the form *%s found in %s" % (Monitor.EXT, dir))
