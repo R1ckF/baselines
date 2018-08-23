@@ -236,5 +236,5 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     if frame_stack:
         env = FrameStack(env, 4)
     if monitor:
-        env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%10==0)
+        env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
     return env

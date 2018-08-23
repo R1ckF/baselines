@@ -25,6 +25,7 @@ except ImportError:
     MPI = None
 
 _game_envs = defaultdict(set)
+
 for env in gym.envs.registry.all():
     # solve this with regexes
     env_type = env._entry_point.split(':')[0].split('.')[-1]
@@ -92,7 +93,9 @@ def build_env(args):
                                    inter_op_parallelism_threads=1))
 
         if args.num_env:
-            env = SubprocVecEnv([lambda: make_mujoco_env(env_id, seed + i if seed is not None else None, args.reward_scale) for i in range(args.num_env)])
+            templist = [(lambda i: lambda: make_mujoco_env(env_id, seed + i if seed is not None else None, i,args.reward_scale,monitor=True if i==0 else False))(i) for i in range(args.num_env)]
+            # templist.append(lambda: make_mujoco_env(env_id, seed + args.num_env-1 if seed is not None else None, args.num_env-, args.reward_scale,monitor=True))
+            env = SubprocVecEnv(templist)
         else:
             env = DummyVecEnv([lambda: make_mujoco_env(env_id, seed, args.reward_scale)])
 
