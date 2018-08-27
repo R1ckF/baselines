@@ -214,7 +214,7 @@ def main():
     else:
         logger.configure(format_strs = [])
         rank = MPI.COMM_WORLD.Get_rank()
-    
+
     model, _ = train(args, extra_args)
 
     if args.save_path:

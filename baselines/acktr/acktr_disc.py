@@ -22,7 +22,7 @@ class Model(object):
                  kfac_clip=0.001, lrschedule='linear'):
 
         self.sess = sess = get_session()
-        nact = ac_space.n
+        # nact = ac_space.n
         nbatch = nenvs * nsteps
         A = tf.placeholder(tf.int32, [nbatch])
         ADV = tf.placeholder(tf.float32, [nbatch])

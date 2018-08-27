@@ -221,8 +221,8 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     nenvs = env.num_envs
     ob_space = env.observation_space
     ac_space = env.action_space
-    # print(ob_space,'\n',ac_space)
-    # print(ob_space.__dict__,'\n',ac_space.__dict__)
+    print('obspace: ',ob_space,'\n','acspace: ',ac_space)
+    print('obspace: ',ob_space.__dict__,'\n','acspace: ',ac_space.__dict__)
     # print(ac_space.n)
     nbatch = nenvs * nsteps
     nbatch_train = nbatch // nminibatches
