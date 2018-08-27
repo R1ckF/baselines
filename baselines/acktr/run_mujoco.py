@@ -2,13 +2,13 @@
 
 import tensorflow as tf
 from baselines import logger
-from baselines.common.cmd_util import make_mujoco_env, mujoco_arg_parser
+from baselines.common.cmd_util import make_mujoco_env, common_arg_parser
 from baselines.acktr.acktr_cont import learn
 from baselines.acktr.policies import GaussianMlpPolicy
 from baselines.acktr.value_functions import NeuralNetValueFunction
 
 def train(env_id, num_timesteps, seed):
-    env = make_mujoco_env(env_id, seed)
+    env = make_mujoco_env(env_id, seed,0,monitor=True)
 
     with tf.Session(config=tf.ConfigProto()):
         ob_dim = env.observation_space.shape[0]
@@ -26,7 +26,7 @@ def train(env_id, num_timesteps, seed):
         env.close()
 
 def main():
-    args = mujoco_arg_parser().parse_args()
+    args = common_arg_parser().parse_args()
     logger.configure()
     train(args.env, num_timesteps=args.num_timesteps, seed=args.seed)
 

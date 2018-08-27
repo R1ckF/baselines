@@ -97,7 +97,7 @@ def build_env(args):
             # templist.append(lambda: make_mujoco_env(env_id, seed + args.num_env-1 if seed is not None else None, args.num_env-, args.reward_scale,monitor=True))
             env = SubprocVecEnv(templist)
         else:
-            env = DummyVecEnv([lambda: make_mujoco_env(env_id, seed, args.reward_scale)])
+            env = DummyVecEnv([lambda: make_mujoco_env(env_id, seed, args.reward_scale,monitor=True)])
 
         env = VecNormalize(env)
 
@@ -210,18 +210,18 @@ def main():
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
-        logger.configure(dir='../results/'+args.alg+'_'+str(args.network)+'_'+str(args.num_timesteps))
+        logger.configure(dir='../results/'+args.alg+'_'+str(args.network)+'_'+str(args.env))
     else:
         logger.configure(format_strs = [])
         rank = MPI.COMM_WORLD.Get_rank()
-
+    
     model, _ = train(args, extra_args)
 
     if args.save_path:
-        save_path = logger.get_dir()+'/final/'+args.alg
-        print('saving final model to: '+save_path)
-        model.save(save_path)
-
+        if not args.play:
+            save_path = logger.get_dir()+'/final/'+args.alg
+            print('saving final model to: '+save_path)
+            model.save(save_path)
 
     if args.play:
         logger.log("Running trained model")

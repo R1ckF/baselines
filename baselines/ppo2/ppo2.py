@@ -221,6 +221,9 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     nenvs = env.num_envs
     ob_space = env.observation_space
     ac_space = env.action_space
+    # print(ob_space,'\n',ac_space)
+    # print(ob_space.__dict__,'\n',ac_space.__dict__)
+    # print(ac_space.n)
     nbatch = nenvs * nsteps
     nbatch_train = nbatch // nminibatches
 
@@ -292,12 +295,11 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
                 logger.logkv(lossname, lossval)
             if MPI.COMM_WORLD.Get_rank() == 0:
                 logger.dumpkvs()
-        if save_interval and (update % save_interval == 0 or update == 1) and logger.get_dir() and MPI.COMM_WORLD.Get_rank() == 0:
+        if save_interval and (update % save_interval == 0 or update == 1):# and logger.get_dir():# and MPI.COMM_WORLD.Get_rank() == 0:
             checkdir = osp.join(logger.get_dir(), 'checkpoints')
             os.makedirs(checkdir, exist_ok=True)
             savepath = osp.join(checkdir, '%.5i'%update)
             print('Saving to', savepath)
-            model.save(savepath)
     env.close()
     return model
 
