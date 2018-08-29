@@ -6,7 +6,7 @@ python -m baselines.run \
 --num_timesteps=10000 \
 --network=mlp \
 --env=Hopper-v2 \
---num_env=4
+--num_env=1 
 #--env=Hopper-v2 
 # python -m baselines.run \
 # --alg=ppo2 \

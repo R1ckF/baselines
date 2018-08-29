@@ -190,8 +190,8 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
 
     log_interval: int                 number of timesteps between logging events
 
-    nminibatches: int                 number of training minibatches per update. For recurrent policies, 
-                                      should be smaller or equal than number of environments run in parallel. 
+    nminibatches: int                 number of training minibatches per update. For recurrent policies,
+                                      should be smaller or equal than number of environments run in parallel.
 
     noptepochs: int                   number of training epochs per update
 
@@ -222,9 +222,6 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     nenvs = env.num_envs
     ob_space = env.observation_space
     ac_space = env.action_space
-    print('obspace: ',ob_space,'\n','acspace: ',ac_space)
-    print('obspace: ',ob_space.__dict__,'\n','acspace: ',ac_space.__dict__)
-    # print(ac_space.n)
     nbatch = nenvs * nsteps
     nbatch_train = nbatch // nminibatches
 

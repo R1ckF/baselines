@@ -206,11 +206,12 @@ def main():
     arg_parser = common_arg_parser()
     args, unknown_args = arg_parser.parse_known_args()
     extra_args = {k: parse(v) for k,v in parse_unknown_args(unknown_args).items()}
-
+    if not args.save_folder:
+        args.save_folder = 'results/'+args.alg+'_'+str(args.network)+'_'+str(args.env)
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
-        logger.configure(dir='results/'+args.alg+'_'+str(args.network)+'_'+str(args.env))
+        logger.configure(dir=args.save_folder)
     else:
         logger.configure(format_strs = [])
         rank = MPI.COMM_WORLD.Get_rank()
