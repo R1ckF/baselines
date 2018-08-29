@@ -3,8 +3,8 @@
 
 python -m baselines.run \
 --alg=ppo2 \
---num_timesteps=100 \
---network=cnn \
+--num_timesteps=10000 \
+--network=mlp \
 --env=Hopper-v2 \
 --num_env=4
 #--env=Hopper-v2 
