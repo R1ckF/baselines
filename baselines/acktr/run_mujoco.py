@@ -8,7 +8,7 @@ from baselines.acktr.policies import GaussianMlpPolicy
 from baselines.acktr.value_functions import NeuralNetValueFunction
 
 def train(env_id, num_timesteps, seed):
-    env = make_mujoco_env(env_id, seed,0,monitor=True)
+    env = make_mujoco_env(env_id, seed,0,monitor=False)
 
     with tf.Session(config=tf.ConfigProto()):
         ob_dim = env.observation_space.shape[0]
@@ -21,7 +21,7 @@ def train(env_id, num_timesteps, seed):
         learn(env, policy=policy, vf=vf,
             gamma=0.99, lam=0.97, timesteps_per_batch=2500,
             desired_kl=0.002,
-            num_timesteps=num_timesteps, animate=False)
+            num_timesteps=num_timesteps, animate=True)
 
         env.close()
 

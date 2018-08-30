@@ -234,6 +234,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     #         fh.write(cloudpickle.dumps(make_model))
     model = make_model()
     if load_path is not None:
+        print("loading previous model")
         model.load(load_path)
     runner = Runner(env=env, model=model, nsteps=nsteps, gamma=gamma, lam=lam)
 

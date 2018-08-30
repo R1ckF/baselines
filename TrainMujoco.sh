@@ -2,12 +2,11 @@
 
 python -m baselines.run \
 --alg=ppo2 \
---num_timesteps=0 \
+--num_timesteps=100000 \
 --network=mlp \
---env=Hopper-v2 \
---num_env=1 \
---load_path=results/ppo2_mlp_Hopper-v2/final/ppo2 \
---play
+--env=Ant-v2 \
+--num_env=4 \
+--save_folder=testfolder 
 
 
  

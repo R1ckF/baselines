@@ -49,7 +49,7 @@ def make_mujoco_env(env_id, seed, rank, reward_scale=1.0, monitor=False):
         from baselines.common.retro_wrappers import RewardScaler
         env = RewardScaler(env, reward_scale)
     if monitor:
-        print('monitored')
+        print('*****Monitored!****')
         env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
     return env
 

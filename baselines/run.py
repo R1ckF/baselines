@@ -93,11 +93,11 @@ def build_env(args):
                                    inter_op_parallelism_threads=1))
 
         if args.num_env:
-            templist = [(lambda i: lambda: make_mujoco_env(env_id, seed + i if seed is not None else None, i,args.reward_scale,monitor=True if i==0 else False))(i) for i in range(args.num_env)]
+            templist = [(lambda i: lambda: make_mujoco_env(env_id, seed + i if seed is not None else None, i,args.reward_scale,monitor=True if i==1 else False))(i) for i in range(args.num_env)]
             # templist.append(lambda: make_mujoco_env(env_id, seed + args.num_env-1 if seed is not None else None, args.num_env-, args.reward_scale,monitor=True))
             env = SubprocVecEnv(templist)
         else:
-            env = DummyVecEnv([lambda: make_mujoco_env(env_id, seed, args.reward_scale,monitor=True)])
+            env = DummyVecEnv([lambda: make_mujoco_env(env_id, seed, args.reward_scale,monitor=False)])
 
         env = VecNormalize(env)
 
