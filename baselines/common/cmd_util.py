@@ -15,22 +15,28 @@ from baselines.bench import Monitor
 from baselines.common import set_global_seeds
 from baselines.common.atari_wrappers import make_atari, wrap_deepmind
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+from baselines.common.retro_wrappers import RewardScaler
 
-def make_atari_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
+
+def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_index=0, reward_scale=1.0):
     """
-    Create a wrapped, monitored SubprocVecEnv for Atari.
+    Create a wrapped, monitored SubprocVecEnv for Atari and MuJoCo.
     """
     if wrapper_kwargs is None: wrapper_kwargs = {}
     mpi_rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
-            env = make_atari(env_id)
+            env = make_atari(env_id) if env_type == 'atari' else gym.make(env_id)
             env.seed(seed + 10000*mpi_rank + rank if seed is not None else None)
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)))
-            return wrap_deepmind(env, **wrapper_kwargs)
+            if env_type == 'atari': return wrap_deepmind(env, **wrapper_kwargs)
+            elif reward_scale != 1: return RewardScaler(env, reward_scale)
+            else: return env
         return _thunk
     set_global_seeds(seed)
-    return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+    if num_env > 1: return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+    else: return DummyVecEnv([make_env(start_index)])
 
 def make_mujoco_env(env_id, seed, rank, reward_scale=1.0, monitor=False):
     """
@@ -44,13 +50,9 @@ def make_mujoco_env(env_id, seed, rank, reward_scale=1.0, monitor=False):
     logger_path = logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank))
     env = Monitor(env, logger_path, allow_early_resets=True)
     env.seed(seed)
-
     if reward_scale != 1.0:
         from baselines.common.retro_wrappers import RewardScaler
         env = RewardScaler(env, reward_scale)
-    if monitor:
-        print('*****Monitored!****')
-        env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
     return env
 
 def make_robotics_env(env_id, seed, rank=0):
@@ -91,7 +93,7 @@ def common_arg_parser():
     parser = arg_parser()
     parser.add_argument('--env', help='environment ID', type=str, default='Reacher-v2')
     parser.add_argument('--seed', help='RNG seed', type=int, default=None)
-    parser.add_argument('--alg', help='Algorithm', type=str, default='a2c')
+    parser.add_argument('--alg', help='Algorithm', type=str, default='ppo2')
     parser.add_argument('--num_timesteps', type=float, default=1e6),
     parser.add_argument('--network', help='network type (mlp, cnn, lstm, cnn_lstm, conv_only)', default=None)
     parser.add_argument('--gamestate', help='game state to load (so far only used in retro games)', default=None)

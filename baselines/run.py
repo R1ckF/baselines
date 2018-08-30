@@ -9,14 +9,13 @@ import numpy as np
 import time
 
 from baselines.common.vec_env.vec_frame_stack import VecFrameStack
-from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, make_mujoco_env, make_atari_env
+from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, make_vec_env
 from baselines.common.tf_util import get_session
 from baselines import bench, logger
 from importlib import import_module
 
 from baselines.common.vec_env.vec_normalize import VecNormalize
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common import atari_wrappers, retro_wrappers
 
 try:
@@ -80,7 +79,7 @@ def train(args, extra_args):
 
 def build_env(args):
     ncpu = multiprocessing.cpu_count()
-    if sys.platform == 'darwin': ncpu //= 2
+    if sys.platform == 'darwin': ncpu /= 2
     nenv = args.num_env or ncpu
     alg = args.alg
     rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
@@ -93,17 +92,15 @@ def build_env(args):
                                    inter_op_parallelism_threads=1))
 
         if args.num_env:
-            templist = [(lambda i: lambda: make_mujoco_env(env_id, seed + i if seed is not None else None, i,args.reward_scale,monitor=True if i==1 else False))(i) for i in range(args.num_env)]
-            # templist.append(lambda: make_mujoco_env(env_id, seed + args.num_env-1 if seed is not None else None, args.num_env-, args.reward_scale,monitor=True))
-            env = SubprocVecEnv(templist)
+            env = make_vec_env(env_id, env_type, nenv, seed, reward_scale=args.reward_scale)
         else:
-            env = DummyVecEnv([lambda: make_mujoco_env(env_id, seed, args.reward_scale,monitor=False)])
+            env = make_vec_env(env_id, env_type,    1, seed, reward_scale=args.reward_scale)
 
         env = VecNormalize(env)
 
     elif env_type == 'atari':
         if alg == 'acer':
-            env = make_atari_env(env_id, nenv, seed)
+            env = make_vec_env(env_id, env_type, nenv, seed)
         elif alg == 'deepq':
             env = atari_wrappers.make_atari(env_id)
             env.seed(seed)
@@ -118,7 +115,7 @@ def build_env(args):
             env.seed(seed)
         else:
             frame_stack_size = 4
-            env = VecFrameStack(make_atari_env(env_id, nenv, seed), frame_stack_size)
+            env = VecFrameStack(make_vec_env(env_id, env_type, nenv, seed), frame_stack_size)
 
     elif env_type == 'retro':
         import retro
@@ -209,6 +206,7 @@ def main():
     if not args.save_folder:
         args.save_folder = 'results/'+args.alg+'_'+str(args.network)+'_'+str(args.env)
 
+
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
         logger.configure(dir=args.save_folder)
@@ -223,6 +221,7 @@ def main():
             save_path = logger.get_dir()+'/final/'+args.alg
             print('saving final model to: '+save_path)
             model.save(save_path)
+
 
     if args.play:
         logger.log("Running trained model")
