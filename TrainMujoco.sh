@@ -6,7 +6,8 @@ python -m baselines.run \
 --network=mlp \
 --env=Ant-v2 \
 --num_env=4 \
---save_folder=testfolder
+--save_folder=testfolder \
+--record
 
 
 

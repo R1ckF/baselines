@@ -27,9 +27,13 @@ def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_ind
     mpi_rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
+            global args
             env = make_atari(env_id) if env_type == 'atari' else gym.make(env_id)
             env.seed(seed + 10000*mpi_rank + rank if seed is not None else None)
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)))
+            if rank==0:
+                print("**Monitored**")
+                env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
             if env_type == 'atari': return wrap_deepmind(env, **wrapper_kwargs)
             elif reward_scale != 1: return RewardScaler(env, reward_scale)
             else: return env
@@ -38,7 +42,7 @@ def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_ind
     if num_env > 1: return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
     else: return DummyVecEnv([make_env(start_index)])
 
-def make_mujoco_env(env_id, seed, rank, reward_scale=1.0, monitor=False):
+def make_mujoco_env(env_id, seed, rank, reward_scale=1.0):
     """
     Create a wrapped, monitored gym.Env for MuJoCo.
     """
@@ -102,6 +106,7 @@ def common_arg_parser():
     parser.add_argument('--save_path', help='Path to save trained model to', default='../Models/model', type=str)
     parser.add_argument('--save_folder', help='Path to save trained model to', default=None, type=str)
     parser.add_argument('--play', default=False, action='store_true')
+    parser.add_argument('--record', default=False, action='store_true')
     return parser
 
 def robotics_arg_parser():
