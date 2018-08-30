@@ -27,19 +27,12 @@ def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_ind
     mpi_rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
-<<<<<<< HEAD
-            global args
             env = make_atari(env_id) if env_type == 'atari' else gym.make(env_id)
             env.seed(seed + 10000*mpi_rank + rank if seed is not None else None)
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)))
             if rank==0:
                 print("**Monitored**")
                 env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
-=======
-            env = make_atari(env_id) if env_type == 'atari' else gym.make(env_id)
-            env.seed(seed + 10000*mpi_rank + rank if seed is not None else None)
-            env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)))
->>>>>>> 43b62b9d8b5a128352d222372820155e2d10cac3
             if env_type == 'atari': return wrap_deepmind(env, **wrapper_kwargs)
             elif reward_scale != 1: return RewardScaler(env, reward_scale)
             else: return env
