@@ -161,11 +161,13 @@ def learn(
 
     nbatch = nenvs*nsteps
     tstart = time.time()
-    for update in range(1, total_timesteps//nbatch+1):
+    nupdates = total_timesteps//nbatch+1
+    for update in range(1, nupdates):
         obs, states, rewards, masks, actions, values,latest_reward = runner.run()
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         nseconds = time.time()-tstart
         fps = int((update*nbatch)/nseconds)
+        esttime = time.strftime("%H:%M:%S", time.gmtime(nseconds/update*(nupdates-update)))
         if update % log_interval == 0 or update == 1:
             ev = explained_variance(values, rewards)
             logger.record_tabular("nupdates", update)
@@ -175,6 +177,8 @@ def learn(
             logger.record_tabular("value_loss", float(value_loss))
             logger.record_tabular("explained_variance", float(ev))
             logger.record_tabular("Latest Reward", latest_reward)
+            logger.record_tabular("estimated time left", esttime)
+            logger.record_tabular("time elapsed", time.strftime("%H:%M:%S", time.gmtime(nseconds)))
             logger.dump_tabular()
         if save_interval and (update % save_interval == 0 or update == 1) and logger.get_dir():
             savepath = osp.join(logger.get_dir(), 'checkpoint%.5i'%update)
