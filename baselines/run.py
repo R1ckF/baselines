@@ -54,7 +54,11 @@ def train(args, extra_args):
     learn = get_learn_function(args.alg)
     alg_kwargs = get_learn_function_defaults(args.alg, env_type)
     alg_kwargs.update(extra_args)
-
+    if 'nminibatches' in alg_kwargs.keys() and args.alg=='ppo2':
+        print('check')
+        alg_kwargs['nminibatches'] = args.num_env
+    else:
+        print('not ppo, no check')
     env = build_env(args)
 
     if args.network:
@@ -92,9 +96,9 @@ def build_env(args):
                                    inter_op_parallelism_threads=1))
 
         if args.num_env:
-            env = make_vec_env(env_id, env_type, nenv, seed, reward_scale=args.reward_scale)
+            env = make_vec_env(env_id, env_type, nenv, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
         else:
-            env = make_vec_env(env_id, env_type,    1, seed, reward_scale=args.reward_scale)
+            env = make_vec_env(env_id, env_type,    1, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
 
         env = VecNormalize(env)
 
@@ -204,7 +208,7 @@ def main():
     args, unknown_args = arg_parser.parse_known_args()
     extra_args = {k: parse(v) for k,v in parse_unknown_args(unknown_args).items()}
     if not args.save_folder:
-        args.save_folder = 'results/'+args.alg+'_'+str(args.network)+'_'+str(args.env)
+        args.save_folder = 'results/'+args.alg+'_'+str(args.network)+'_'+str(args.env)+'_'+str(args.num_env)
 
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
@@ -230,7 +234,7 @@ def main():
         while True:
             actions = model.step(obs)[0]
             obs, _, done, _  = env.step(actions)
-            env.render()
+            env.render(mode='human')
             done = done.any() if isinstance(done, np.ndarray) else done
 
             if done:

@@ -19,7 +19,7 @@ from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.retro_wrappers import RewardScaler
 
 
-def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_index=0, reward_scale=1.0):
+def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_index=0, reward_scale=1.0, record=False,play=False):
     """
     Create a wrapped, monitored SubprocVecEnv for Atari and MuJoCo.
     """
@@ -29,8 +29,8 @@ def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_ind
         def _thunk():
             env = make_atari(env_id) if env_type == 'atari' else gym.make(env_id)
             env.seed(seed + 10000*mpi_rank + rank if seed is not None else None)
-            env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)))
-            if rank==0:
+            env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)), allow_early_resets=True)
+            if rank==0 and record:
                 print("**Monitored**")
                 env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
             if env_type == 'atari': return wrap_deepmind(env, **wrapper_kwargs)
@@ -38,10 +38,10 @@ def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_ind
             else: return env
         return _thunk
     set_global_seeds(seed)
-    if num_env > 1: return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+    if num_env>1: return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
     else: return DummyVecEnv([make_env(start_index)])
 
-def make_mujoco_env(env_id, seed, rank, reward_scale=1.0):
+def make_mujoco_env(env_id, seed, rank, reward_scale=1.0,monitor=False):
     """
     Create a wrapped, monitored gym.Env for MuJoCo.
     """
@@ -53,6 +53,9 @@ def make_mujoco_env(env_id, seed, rank, reward_scale=1.0):
     logger_path = logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank))
     env = Monitor(env, logger_path, allow_early_resets=True)
     env.seed(seed)
+    if monitor:
+        print("**Monitored**")
+        env = gym.wrappers.Monitor(env,logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
     if reward_scale != 1.0:
         from baselines.common.retro_wrappers import RewardScaler
         env = RewardScaler(env, reward_scale)

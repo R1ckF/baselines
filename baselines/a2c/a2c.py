@@ -96,7 +96,7 @@ def learn(
     gamma=0.99,
     log_interval=500,
     load_path=None,
-    save_interval=500,
+    save_interval=1000,
     **network_kwargs):
 
     '''
