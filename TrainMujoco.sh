@@ -1,9 +1,23 @@
  #!/bin/bash 
 
 timesteps=1000000
-environment=Hopper-v2
+environment=Humanoid-v2
 net=lstm
 
+
+python -m baselines.run \
+--alg=timetest \
+--num_timesteps=$timesteps \
+--env=$environment \
+--num_env=4 \
+--record
+
+python -m baselines.run \
+--alg=timetest \
+--num_timesteps=$timesteps \
+--env=$environment \
+--num_env=1 \
+--record
 
 # python -m baselines.run \
 # --alg=a2c \
@@ -13,13 +27,13 @@ net=lstm
 # --num_env=4 \
 # --record
 
-python -m baselines.run \
---alg=ppo2 \
---num_timesteps=$timesteps \
---network=$net \
---env=$environment \
---num_env=1 \
---record
+# python -m baselines.run \
+# --alg=ppo2 \
+# --num_timesteps=$timesteps \
+# --network=$net \
+# --env=$environment \
+# --num_env=1 \
+# --record
 
 # python -m baselines.run \
 # --alg=ppo2 \

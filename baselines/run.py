@@ -90,7 +90,14 @@ def build_env(args):
     seed = args.seed
 
     env_type, env_id = get_env_type(args.env)
-    if env_type == 'mujoco':
+    if alg == 'timetest':
+        if args.num_env:
+            env = make_vec_env(env_id, env_type, nenv, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
+        else:
+            env = make_vec_env(env_id, env_type,    1, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
+
+        env = VecNormalize(env)
+    elif env_type == 'mujoco':
         get_session(tf.ConfigProto(allow_soft_placement=True,
                                    intra_op_parallelism_threads=1,
                                    inter_op_parallelism_threads=1))

@@ -149,7 +149,7 @@ def learn(
 
 
     set_global_seeds(seed)
-
+    print(network+"right?")
     nenvs = env.num_envs
     policy = build_policy(env, network, **network_kwargs)
 
