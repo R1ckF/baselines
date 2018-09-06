@@ -47,7 +47,6 @@ def sort_lists(r,l,t,folder):
     l = [l[i] for i in order]
     l = np.cumsum(l)
     t = [t[i]/3600 for i in order]
-
     # gaps = []
     # if folder == "ppo2_cnn_10000000.0":
     #     temp_t = np.insert(t,0,0)
@@ -80,9 +79,10 @@ def main(folders,names,window=100):
     L = []
     T = []
     N = []
-    for folder in folders:
+    for name,folder in zip(names,folders):
         r,l,t = extract_results(folder)
         r,l,t,n = sort_lists(r,l,t,folder)
+        print(name+': '+str(t[-1]-t[0]))
         if len(r)>window:
             r = filter_outcome(r,window=window)
         R.append(r)
