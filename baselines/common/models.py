@@ -5,6 +5,13 @@ from baselines.a2c.utils import conv, fc, conv_to_fc, batch_to_seq, seq_to_batch
 from baselines.common.mpi_running_mean_std import RunningMeanStd
 import tensorflow.contrib.layers as layers
 
+mapping = {}
+
+def register(name):
+    def _thunk(func):
+        mapping[name] = func
+        return func
+    return _thunk
 
 def nature_cnn(unscaled_images, **conv_kwargs):
     """
@@ -20,6 +27,7 @@ def nature_cnn(unscaled_images, **conv_kwargs):
     return activ(fc(h3, 'fc1', nh=512, init_scale=np.sqrt(2)))
 
 
+@register("mlp")
 def mlp(num_layers=2, num_hidden=64, activation=tf.tanh):
     """
     Stack of fully-connected layers to be used in a policy / q-function approximator
@@ -52,6 +60,8 @@ def cnn(**conv_kwargs):
         return nature_cnn(X, **conv_kwargs), None
     return network_fn
 
+
+@register("cnn_small")
 def cnn_small(**conv_kwargs):
     def network_fn(X):
         h = tf.cast(X, tf.float32) / 255.
@@ -65,7 +75,7 @@ def cnn_small(**conv_kwargs):
     return network_fn
 
 
-
+@register("lstm")
 def lstm(nlstm=128, layer_norm=False):
     """
     Builds LSTM (Long-Short Term Memory) network to be used in a policy.
@@ -117,6 +127,7 @@ def lstm(nlstm=128, layer_norm=False):
     return network_fn
 
 
+@register("cnn_lstm")
 def cnn_lstm(nlstm=128, layer_norm=False, **conv_kwargs):
     def network_fn(X, nenv=1):
         nbatch = X.shape[0]
@@ -142,10 +153,13 @@ def cnn_lstm(nlstm=128, layer_norm=False, **conv_kwargs):
 
     return network_fn
 
+
+@register("cnn_lnlstm")
 def cnn_lnlstm(nlstm=128, **conv_kwargs):
     return cnn_lstm(nlstm, layer_norm=True, **conv_kwargs)
 
 
+@register("conv_only")
 def conv_only(convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)], **conv_kwargs):
     '''
     convolutions-only net
