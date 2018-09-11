@@ -20,11 +20,9 @@ class Model(object):
     def __init__(self, *, policy, ob_space, ac_space, nbatch_act, nbatch_train,
                 nsteps, ent_coef, vf_coef, max_grad_norm):
         sess = get_session()
-
         with tf.variable_scope('ppo2_model', reuse=tf.AUTO_REUSE):
             act_model = policy(nbatch_act, 1, sess)
             train_model = policy(nbatch_train, nsteps, sess)
-
         A = train_model.pdtype.sample_placeholder([None])
         ADV = tf.placeholder(tf.float32, [None])
         R = tf.placeholder(tf.float32, [None])
@@ -216,15 +214,12 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     if isinstance(cliprange, float): cliprange = constfn(cliprange)
     else: assert callable(cliprange)
     total_timesteps = int(total_timesteps)
-
     policy = build_policy(env, network, **network_kwargs)
-
     nenvs = env.num_envs
     ob_space = env.observation_space
     ac_space = env.action_space
     nbatch = nenvs * nsteps
     nbatch_train = nbatch // nminibatches
-
     make_model = lambda : Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nbatch_act=nenvs, nbatch_train=nbatch_train,
                     nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
                     max_grad_norm=max_grad_norm)

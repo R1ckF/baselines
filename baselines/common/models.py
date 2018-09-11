@@ -28,16 +28,16 @@ def mlp(num_layers=2, num_hidden=64, activation=tf.tanh):
     ----------
 
     num_layers: int                 number of fully-connected layers (default: 2)
-    
+
     num_hidden: int                 size of fully-connected layers (default: 64)
-    
+
     activation:                     activation function (default: tf.tanh)
-        
+
     Returns:
     -------
 
     function that builds fully connected network with a given input tensor / placeholder
-    """        
+    """
     def network_fn(X):
         h = tf.layers.flatten(X)
         for i in range(num_layers):
@@ -45,7 +45,7 @@ def mlp(num_layers=2, num_hidden=64, activation=tf.tanh):
         return h, None
 
     return network_fn
-  
+
 
 def cnn(**conv_kwargs):
     def network_fn(X):
@@ -55,7 +55,7 @@ def cnn(**conv_kwargs):
 def cnn_small(**conv_kwargs):
     def network_fn(X):
         h = tf.cast(X, tf.float32) / 255.
-        
+
         activ = tf.nn.relu
         h = activ(conv(h, 'c1', nf=8, rf=8, stride=4, init_scale=np.sqrt(2), **conv_kwargs))
         h = activ(conv(h, 'c2', nf=16, rf=4, stride=2, init_scale=np.sqrt(2), **conv_kwargs))
@@ -69,11 +69,11 @@ def cnn_small(**conv_kwargs):
 def lstm(nlstm=128, layer_norm=False):
     """
     Builds LSTM (Long-Short Term Memory) network to be used in a policy.
-    Note that the resulting function returns not only the output of the LSTM 
+    Note that the resulting function returns not only the output of the LSTM
     (i.e. hidden state of lstm for each step in the sequence), but also a dictionary
-    with auxiliary tensors to be set as policy attributes. 
+    with auxiliary tensors to be set as policy attributes.
 
-    Specifically, 
+    Specifically,
         S is a placeholder to feed current state (LSTM state has to be managed outside policy)
         M is a placeholder for the mask (used to mask out observations after the end of the episode, but can be used for other purposes too)
         initial_state is a numpy array containing initial lstm state (usually zeros)
@@ -81,7 +81,7 @@ def lstm(nlstm=128, layer_norm=False):
 
 
     An example of usage of lstm-based policy can be found here: common/tests/test_doc_examples.py/test_lstm_example
-            
+
     Parameters:
     ----------
 
@@ -94,24 +94,21 @@ def lstm(nlstm=128, layer_norm=False):
 
     function that builds LSTM with a given input tensor / placeholder
     """
-        
+
     def network_fn(X, nenv=1):
-        nbatch = X.shape[0] 
+        nbatch = X.shape[0]
         nsteps = nbatch // nenv
-         
+
         h = tf.layers.flatten(X)
 
         M = tf.placeholder(tf.float32, [nbatch]) #mask (done t-1)
         S = tf.placeholder(tf.float32, [nenv, 2*nlstm]) #states
-
         xs = batch_to_seq(h, nenv, nsteps)
         ms = batch_to_seq(M, nenv, nsteps)
-
         if layer_norm:
             h5, snew = utils.lnlstm(xs, ms, S, scope='lnlstm', nh=nlstm)
         else:
             h5, snew = utils.lstm(xs, ms, S, scope='lstm', nh=nlstm)
-            
         h = seq_to_batch(h5)
         initial_state = np.zeros(S.shape.as_list(), dtype=float)
 
@@ -122,11 +119,11 @@ def lstm(nlstm=128, layer_norm=False):
 
 def cnn_lstm(nlstm=128, layer_norm=False, **conv_kwargs):
     def network_fn(X, nenv=1):
-        nbatch = X.shape[0] 
+        nbatch = X.shape[0]
         nsteps = nbatch // nenv
-         
+
         h = nature_cnn(X, **conv_kwargs)
-       
+
         M = tf.placeholder(tf.float32, [nbatch]) #mask (done t-1)
         S = tf.placeholder(tf.float32, [nenv, 2*nlstm]) #states
 
@@ -137,7 +134,7 @@ def cnn_lstm(nlstm=128, layer_norm=False, **conv_kwargs):
             h5, snew = utils.lnlstm(xs, ms, S, scope='lnlstm', nh=nlstm)
         else:
             h5, snew = utils.lstm(xs, ms, S, scope='lstm', nh=nlstm)
-            
+
         h = seq_to_batch(h5)
         initial_state = np.zeros(S.shape.as_list(), dtype=float)
 
@@ -150,18 +147,18 @@ def cnn_lnlstm(nlstm=128, **conv_kwargs):
 
 
 def conv_only(convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)], **conv_kwargs):
-    ''' 
+    '''
     convolutions-only net
 
     Parameters:
     ----------
 
-    conv:       list of triples (filter_number, filter_size, stride) specifying parameters for each layer. 
+    conv:       list of triples (filter_number, filter_size, stride) specifying parameters for each layer.
 
     Returns:
 
     function that takes tensorflow tensor as input and returns the output of the last convolutional layer
-    
+
     '''
 
     def network_fn(X):
@@ -182,10 +179,10 @@ def _normalize_clip_observation(x, clip_range=[-5.0, 5.0]):
     rms = RunningMeanStd(shape=x.shape[1:])
     norm_x = tf.clip_by_value((x - rms.mean) / rms.std, min(clip_range), max(clip_range))
     return norm_x, rms
-    
+
 
 def get_network_builder(name):
-    # TODO: replace with reflection? 
+    # TODO: replace with reflection?
     if name == 'cnn':
         return cnn
     elif name == 'cnn_small':

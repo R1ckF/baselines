@@ -239,8 +239,11 @@ def main():
         logger.log("Running trained model")
         env = build_env(args)
         obs = env.reset()
+        nlstm=128 #default change if different
+        play_S = np.zeros((args.num_env,2*nlstm))
+        play_M = np.zeros((1))
         while True:
-            actions = model.step(obs)[0]
+            actions,_,play_S,_ = model.step(obs,S=play_S, M=play_M)
             obs, _, done, _ = env.step(actions)
             env.render()
             done = done.any() if isinstance(done, np.ndarray) else done
