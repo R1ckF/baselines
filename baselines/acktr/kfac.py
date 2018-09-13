@@ -79,11 +79,11 @@ class KfacOptimizer():
                     factors.append(searchFactors(g, graph))
                 op_names = [item['opName'] for item in factors]
                 # TO-DO: need to check all the attribute of the ops as well
-                print (gradient.name)
-                print (op_names)
-                print (len(np.unique(op_names)))
-                assert len(np.unique(op_names)) == 1, gradient.name + \
-                    ' is shared among different computation OPs'
+                # print (gradient.name)
+                # print (op_names)
+                # print (len(np.unique(op_names)))
+                # assert len(np.unique(op_names)) == 1, gradient.name + \
+                    # ' is shared among different computation OPs'
 
                 bTensors = reduce(lambda x, y: x + y,
                                   [item['bpropFactors'] for item in factors])

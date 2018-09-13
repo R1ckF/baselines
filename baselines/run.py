@@ -66,7 +66,9 @@ def train(args, extra_args):
     alg_kwargs.update(extra_args)
     if 'nminibatches' in alg_kwargs.keys() and args.alg=='ppo2':
         print('check')
-        alg_kwargs['nminibatches'] = args.num_env
+        if alg_kwargs['nsteps']!=2048:
+            alg_kwargs['nminibatches'] = args.num_env
+        print(alg_kwargs['nminibatches'])
     else:
         print('not ppo, no check')
     env = build_env(args)
@@ -145,7 +147,7 @@ def build_env(args):
         env = bench.Monitor(env, logger.get_dir())
         env = retro_wrappers.wrap_deepmind_retro(env)
 
-    else: 
+    else:
        get_session(tf.ConfigProto(allow_soft_placement=True,
                                    intra_op_parallelism_threads=1,
                                    inter_op_parallelism_threads=1))
@@ -153,7 +155,7 @@ def build_env(args):
        env = make_vec_env(env_id, env_type, args.num_env or 1, seed, reward_scale=args.reward_scale)
 
        if env_type == 'mujoco':
-           env = VecNormalize(env) 
+           env = VecNormalize(env)
 
     return env
 

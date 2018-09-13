@@ -90,9 +90,9 @@ class Model(object):
         self.initial_state = step_model.initial_state
         tf.global_variables_initializer().run(session=sess)
 
-def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interval=1, nprocs=32, nsteps=20,
+def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interval=25, nprocs=32, nsteps=20,
                  ent_coef=0.01, vf_coef=0.5, vf_fisher_coef=1.0, lr=0.25, max_grad_norm=0.5,
-                 kfac_clip=0.001, save_interval=None, lrschedule='linear', load_path=None, is_async=True, **network_kwargs):
+                 kfac_clip=0.001, save_interval=100, lrschedule='linear', load_path=None, is_async=True, **network_kwargs):
     set_global_seeds(seed)
 
 
@@ -108,10 +108,10 @@ def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interva
                                 =nsteps, ent_coef=ent_coef, vf_coef=vf_coef, vf_fisher_coef=
                                 vf_fisher_coef, lr=lr, max_grad_norm=max_grad_norm, kfac_clip=kfac_clip,
                                 lrschedule=lrschedule, is_async=is_async)
-    if save_interval and logger.get_dir():
-        import cloudpickle
-        with open(osp.join(logger.get_dir(), 'make_model.pkl'), 'wb') as fh:
-            fh.write(cloudpickle.dumps(make_model))
+    # if save_interval and logger.get_dir():
+    #     import cloudpickle
+    #     with open(osp.join(logger.get_dir(), 'make_model.pkl'), 'wb') as fh:
+    #         fh.write(cloudpickle.dumps(make_model))
     model = make_model()
 
     if load_path is not None:
@@ -127,11 +127,12 @@ def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interva
         enqueue_threads = []
 
     for update in range(1, total_timesteps//nbatch+1):
-        obs, states, rewards, masks, actions, values = runner.run()
+        obs, states, rewards, masks, actions, values, latest_reward = runner.run()
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         model.old_obs = obs
         nseconds = time.time()-tstart
         fps = int((update*nbatch)/nseconds)
+        esttime = time.strftime("%H:%M:%S", time.gmtime(nseconds/update*(total_timesteps//nbatch+1-update)))
         if update % log_interval == 0 or update == 1:
             ev = explained_variance(values, rewards)
             logger.record_tabular("nupdates", update)
@@ -141,6 +142,9 @@ def learn(network, env, seed, total_timesteps=int(40e6), gamma=0.99, log_interva
             logger.record_tabular("policy_loss", float(policy_loss))
             logger.record_tabular("value_loss", float(value_loss))
             logger.record_tabular("explained_variance", float(ev))
+            logger.record_tabular("latest reward", float(latest_reward))
+            logger.record_tabular("estimated time left", esttime)
+            logger.record_tabular("time elapsed", time.strftime("%H:%M:%S", time.gmtime(nseconds)))
             logger.dump_tabular()
 
         if save_interval and (update % save_interval == 0 or update == 1) and logger.get_dir():

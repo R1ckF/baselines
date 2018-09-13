@@ -1,6 +1,10 @@
  #!/bin/bash 
 
-timesteps=10000
+
+
+## redo ppo2 mlp with copy value network
+## try roboschool?
+timesteps=1000000
 environment=Hopper-v2
 net=mlp
 
@@ -19,13 +23,31 @@ net=mlp
 # --record
 
 
-# python -m baselines.run \
-# --alg=a2c \
-# --num_timesteps=$timesteps \
-# --network=$net \
-# --env=$environment \
-# --num_env=4 \
-# --record
+python -m baselines.run \
+--alg=a2c \
+--num_timesteps=$timesteps \
+--network=$net \
+--env=$environment \
+--num_env=4 \
+--value_network=copy \
+--record
+
+python -m baselines.run \
+--alg=a2c \
+--num_timesteps=$timesteps \
+--network=$net \
+--env=$environment \
+--num_env=1 \
+--value_network=copy \
+--record
+
+python -m baselines.run \
+--alg=trpo_mpi \
+--num_timesteps=$timesteps \
+--network=$net \
+--env=$environment \
+--num_env=1 \
+--record
 
 python -m baselines.run \
 --alg=ppo2 \
@@ -34,31 +56,58 @@ python -m baselines.run \
 --env=$environment \
 --num_env=4 \
 --nsteps=1024 \
+--value_network=copy \
 --record
 
+python -m baselines.run \
+--alg=ppo2 \
+--num_timesteps=$timesteps \
+--network=$net \
+--env=$environment \
+--num_env=4 \
+--save_folder=results/ppo2_$environment_$net_4_2048steps_large_minibatch \
+--value_network=copy \
+--record
+
+python -m baselines.run \
+--alg=ppo2 \
+--num_timesteps=$timesteps \
+--network=$net \
+--env=$environment \
+--num_env=1 \
+--nsteps=1024 \
+--value_network=copy \
+--record
+
+python -m baselines.run \
+--alg=acktr \
+--num_timesteps=$timesteps \
+--network=$net \
+--env=$environment \
+--num_env=4 \
+--nsteps=1024 \
+--value_network=copy \
+--record
+
+python -m baselines.run \
+--alg=acktr \
+--num_timesteps=$timesteps \
+--network=$net \
+--env=$environment \
+--num_env=1 \
+--nsteps=1024 \
+--value_network=copy \
+--record
+
+# net=lstm
+
 # python -m baselines.run \
-# --alg=ppo2 \
+# --alg=a2c \
 # --num_timesteps=$timesteps \
 # --network=$net \
 # --env=$environment \
-# --num_env=1 \
-# --record
-
-# python -m baselines.acktr.run_mujoco \
-# --num_timesteps=$timesteps \
-# --network= \
-# --env=$environment \
-# --num_env=1 \
-# --record
-
-
-
-# python -m baselines.run \
-# --alg=trpo_mpi \
-# --num_timesteps=$timesteps \
-# --network=$net \
-# --env=$environment \
-# --num_env=1 \
+# --num_env=4 \
+# --nsteps=20 \
 # --record
 
 # python -m baselines.run \
@@ -67,10 +116,48 @@ python -m baselines.run \
 # --network=$net \
 # --env=$environment \
 # --num_env=1 \
+# --nsteps=20 \
+# --record
+
+# python -m baselines.run \
+# --alg=ppo2 \
+# --num_timesteps=$timesteps \
+# --network=$net \
+# --env=$environment \
+# --num_env=4 \
+# --nsteps=20 \
+# --record
+
+# python -m baselines.run \
+# --alg=ppo2 \
+# --num_timesteps=$timesteps \
+# --network=$net \
+# --env=$environment \
+# --num_env=1 \
+# --nsteps=20 \
+# --record
+
+# python -m baselines.run \
+# --alg=acktr \
+# --num_timesteps=$timesteps \
+# --network=$net \
+# --env=$environment \
+# --num_env=4 \
+# --nsteps=20 \
+# --record
+
+# python -m baselines.run \
+# --alg=acktr \
+# --num_timesteps=$timesteps \
+# --network=$net \
+# --env=$environment \
+# --num_env=1 \
+# --nsteps=20 \
 # --record
 
 # python -m baselines.ddpg.main \
 # --env_id=$environment \
+
 
 
 
