@@ -146,7 +146,7 @@ class CategoricalPd(Pd):
         # Note: we can't use sparse_softmax_cross_entropy_with_logits because
         #       the implementation does not allow second-order derivatives...
         one_hot_actions = tf.one_hot(x, self.logits.get_shape().as_list()[-1])
-        return tf.nn.softmax_cross_entropy_with_logits_v2(
+        return -tf.nn.softmax_cross_entropy_with_logits_v2(
             logits=self.logits,
             labels=one_hot_actions)
     def kl(self, other):
@@ -309,4 +309,3 @@ def validate_probtype(probtype, pdparam):
     klval_ll_stderr = logliks.std() / np.sqrt(N) #pylint: disable=E1101
     assert np.abs(klval - klval_ll) < 3 * klval_ll_stderr # within 3 sigmas
     print('ok on', probtype, pdparam)
-

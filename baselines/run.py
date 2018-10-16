@@ -64,13 +64,13 @@ def train(args, extra_args):
     learn = get_learn_function(args.alg)
     alg_kwargs = get_learn_function_defaults(args.alg, env_type)
     alg_kwargs.update(extra_args)
-    if 'nminibatches' in alg_kwargs.keys() and args.alg=='ppo2':
-        print('check')
-        if alg_kwargs['nsteps']!=2048:
-            alg_kwargs['nminibatches'] = args.num_env
-        print(alg_kwargs['nminibatches'])
-    else:
-        print('not ppo, no check')
+    # if 'nminibatches' in alg_kwargs.keys() and args.alg=='ppo2':
+    #     print('check')
+    #     if alg_kwargs['nsteps']!=2048:
+    #         alg_kwargs['nminibatches'] = args.num_env
+    #     print(alg_kwargs['nminibatches'])
+    # else:
+    #     print('not ppo, no check')
     env = build_env(args)
 
     if args.network:

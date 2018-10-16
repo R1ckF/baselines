@@ -39,13 +39,16 @@ class Model(object):
         vf_losses1 = tf.square(vpred - R)
         vf_losses2 = tf.square(vpredclipped - R)
         vf_loss = .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
-        ratio = tf.exp(OLDNEGLOGPAC - neglogpac)
+        ratio = tf.exp(neglogpac - OLDNEGLOGPAC)
+        print("ratio: ", ratio.shape)
         pg_losses = -ADV * ratio
         pg_losses2 = -ADV * tf.clip_by_value(ratio, 1.0 - CLIPRANGE, 1.0 + CLIPRANGE)
         pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
+        # pg_loss = tf.Print(pg_loss2,[vpred,R, OLDVPRED],summarize=10000)
         approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - OLDNEGLOGPAC))
         clipfrac = tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio - 1.0), CLIPRANGE)))
         loss = pg_loss - entropy * ent_coef + vf_loss * vf_coef
+        print(loss.shape)
         params = tf.trainable_variables('ppo2_model')
         trainer = MpiAdamOptimizer(MPI.COMM_WORLD, learning_rate=LR, epsilon=1e-5)
         grads_and_var = trainer.compute_gradients(loss, params)
@@ -56,7 +59,9 @@ class Model(object):
         grads_and_var = list(zip(grads, var))
 
         _train = trainer.apply_gradients(grads_and_var)
-
+        tf_writer = tf.summary.FileWriter(logger.get_dir())
+        tf_writer.add_graph(sess.graph)
+        tf_writer.close()
         def train(lr, cliprange, obs, returns, masks, actions, values, neglogpacs, states=None):
             advs = returns - values
             advs = (advs - advs.mean()) / (advs.std() + 1e-8)
@@ -121,6 +126,7 @@ class Runner(AbstractEnvRunner):
         last_values = self.model.value(self.obs, S=self.states, M=self.dones)
         #discount/bootstrap off value fn
         mb_returns = np.zeros_like(mb_rewards)
+        # print(mb_rewards, mb_values, last_values, self.gamma,self.lam)
         mb_advs = np.zeros_like(mb_rewards)
         lastgaelam = 0
         for t in reversed(range(self.nsteps)):
@@ -133,6 +139,7 @@ class Runner(AbstractEnvRunner):
             delta = mb_rewards[t] + self.gamma * nextvalues * nextnonterminal - mb_values[t]
             mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
         mb_returns = mb_advs + mb_values
+        # print(mb_returns, mb_advs)
         return (*map(sf01, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs)),
             mb_states, epinfos,latest_reward)
 # obs, returns, masks, actions, values, neglogpacs, states = runner.run()
@@ -150,7 +157,7 @@ def constfn(val):
 
 def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0, lr=3e-4,
             vf_coef=0.5,  max_grad_norm=0.5, gamma=0.99, lam=0.95,
-            log_interval=500, nminibatches=4, noptepochs=4, cliprange=0.2,
+            log_interval=5, nminibatches=4, noptepochs=4, cliprange=0.2,
             save_interval=500, load_path=None, **network_kwargs):
     '''
     Learn policy using PPO algorithm (https://arxiv.org/abs/1707.06347)
@@ -208,7 +215,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     '''
 
     set_global_seeds(seed)
-
+    print('lr:', lr)
     if isinstance(lr, float): lr = constfn(lr)
     else: assert callable(lr)
     if isinstance(cliprange, float): cliprange = constfn(cliprange)
@@ -234,6 +241,8 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     runner = Runner(env=env, model=model, nsteps=nsteps, gamma=gamma, lam=lam)
 
     epinfobuf = deque(maxlen=100)
+
+
     tfirststart = time.time()
 
     nupdates = total_timesteps//nbatch
@@ -247,14 +256,16 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
         epinfobuf.extend(epinfos)
         mblossvals = []
         if states is None: # nonrecurrent version
+            traintime = time.time()
             inds = np.arange(nbatch)
             for _ in range(noptepochs):
-                np.random.shuffle(inds)
+                # np.random.shuffle(inds)
                 for start in range(0, nbatch, nbatch_train):
                     end = start + nbatch_train
                     mbinds = inds[start:end]
                     slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
                     mblossvals.append(model.train(lrnow, cliprangenow, *slices))
+            # print('traintime: ', time.time()-traintime)
         else: # recurrent version
             assert nenvs % nminibatches == 0
             envsperbatch = nenvs // nminibatches
@@ -274,6 +285,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
         lossvals = np.mean(mblossvals, axis=0)
         tnow = time.time()
         fps = int(nbatch / (tnow - tstart))
+        esttimeH = (tnow-tfirststart)/update*(nupdates-update)/3600.0
         esttime = time.strftime("%H:%M:%S", time.gmtime((tnow-tfirststart)/update*(nupdates-update)))
         if update % log_interval == 0 or update == 1:
             ev = explained_variance(values, returns)
@@ -284,9 +296,10 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
             logger.logkv("explained_variance", float(ev))
             logger.logkv('eprewmean', safemean([epinfo['r'] for epinfo in epinfobuf]))
             logger.logkv('eplenmean', safemean([epinfo['l'] for epinfo in epinfobuf]))
-            logger.logkv('time_elapsed', time.strftime("%H:%M:%S", time.gmtime(tnow - tfirststart)))
+            # logger.logkv('time_elapsed', time.strftime("%H:%M:%S", time.gmtime(tnow - tfirststart)))
             logger.logkv('latest reward', latest_reward)
-            logger.logkv('estimated time left', esttime)
+            # logger.logkv('estimated time left', esttime)
+            # logger.logkv('estimated time left', esttimeH)
             for (lossval, lossname) in zip(lossvals, model.loss_names):
                 logger.logkv(lossname, lossval)
             if MPI.COMM_WORLD.Get_rank() == 0:

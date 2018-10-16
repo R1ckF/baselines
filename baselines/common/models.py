@@ -64,13 +64,18 @@ def cnn(**conv_kwargs):
 @register("cnn_small")
 def cnn_small(**conv_kwargs):
     def network_fn(X):
+        print(X.shape)
         h = tf.cast(X, tf.float32) / 255.
-
+        print(h.shape)
         activ = tf.nn.relu
         h = activ(conv(h, 'c1', nf=8, rf=8, stride=4, init_scale=np.sqrt(2), **conv_kwargs))
+        print(h.shape)
         h = activ(conv(h, 'c2', nf=16, rf=4, stride=2, init_scale=np.sqrt(2), **conv_kwargs))
+        print(h.shape)
         h = conv_to_fc(h)
+        print(h.shape)
         h = activ(fc(h, 'fc1', nh=128, init_scale=np.sqrt(2)))
+        print(h.shape)
         return h, None
     return network_fn
 
