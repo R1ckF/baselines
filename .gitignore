@@ -18,12 +18,14 @@ keys/
 /results
 /models
 
+
 *.sublime-project
 *.sublime-workspace
 
 .idea
 
 logs/
+/results/
 
 .ipynb_checkpoints
 ghostdriver.log

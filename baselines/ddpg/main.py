@@ -25,11 +25,14 @@ def run(env_id, seed, noise_type, layer_norm, evaluation, **kwargs):
     # Create envs.
     env = gym.make(env_id)
     env = bench.Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)))
+    env = gym.wrappers.Monitor(env, logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
+
 
     if evaluation and rank==0:
         eval_env = gym.make(env_id)
         eval_env = bench.Monitor(eval_env, os.path.join(logger.get_dir(), 'gym_eval'))
         env = bench.Monitor(env, None)
+        env = gym.wrappers.Monitor(env, logger.get_dir(), force=True, video_callable=lambda episode_id: episode_id%100==0)
     else:
         eval_env = None
 
@@ -82,7 +85,7 @@ def run(env_id, seed, noise_type, layer_norm, evaluation, **kwargs):
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--env-id', type=str, default='HalfCheetah-v1')
+    parser.add_argument('--env_id', type=str, default='HalfCheetah-v1')
     boolean_flag(parser, 'render-eval', default=False)
     boolean_flag(parser, 'layer-norm', default=True)
     boolean_flag(parser, 'render', default=False)
@@ -97,17 +100,21 @@ def parse_args():
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--reward-scale', type=float, default=1.)
     parser.add_argument('--clip-norm', type=float, default=None)
-    parser.add_argument('--nb-epochs', type=int, default=500)  # with default settings, perform 1M steps total
-    parser.add_argument('--nb-epoch-cycles', type=int, default=20)
-    parser.add_argument('--nb-train-steps', type=int, default=50)  # per epoch cycle and MPI worker
+    parser.add_argument('--nb_epochs', type=int, default=500)  # with default settings, perform 1M steps total
+    parser.add_argument('--nb_epoch_cycles', type=int, default=20)
+    parser.add_argument('--nb_train_steps', type=int, default=50)  # per epoch cycle and MPI worker
     parser.add_argument('--nb-eval-steps', type=int, default=100)  # per epoch cycle and MPI worker
-    parser.add_argument('--nb-rollout-steps', type=int, default=100)  # per epoch cycle and MPI worker
+    parser.add_argument('--nb_rollout_steps', type=int, default=100)  # per epoch cycle and MPI worker
     parser.add_argument('--noise-type', type=str, default='adaptive-param_0.2')  # choices are adaptive-param_xx, ou_xx, normal_xx, none
-    parser.add_argument('--num-timesteps', type=int, default=None)
+    parser.add_argument('--num_timesteps', type=int, default=None)
     boolean_flag(parser, 'evaluation', default=False)
     args = parser.parse_args()
     # we don't directly specify timesteps for this script, so make sure that if we do specify them
     # they agree with the other parameters
+    if args.num_timesteps:
+        args.nb_epochs=args.num_timesteps/(args.nb_epoch_cycles * args.nb_rollout_steps)
+        print(args.nb_epochs)
+        args.nb_epochs=int(args.nb_epochs)
     if args.num_timesteps is not None:
         assert(args.num_timesteps == args.nb_epochs * args.nb_epoch_cycles * args.nb_rollout_steps)
     dict_args = vars(args)
@@ -117,7 +124,8 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
+    print(args)
     if MPI.COMM_WORLD.Get_rank() == 0:
-        logger.configure()
+        logger.configure(dir='results/ddpg_mlp_'+str(args['env_id']))
     # Run actual script.
     run(**args)

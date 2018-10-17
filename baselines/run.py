@@ -9,14 +9,12 @@ import numpy as np
 import time
 
 from baselines.common.vec_env.vec_frame_stack import VecFrameStack
-from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, make_mujoco_env, make_atari_env
+from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, make_vec_env
 from baselines.common.tf_util import get_session
 from baselines import bench, logger
 from importlib import import_module
 
 from baselines.common.vec_env.vec_normalize import VecNormalize
-from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common import atari_wrappers, retro_wrappers
 
 try:
@@ -24,17 +22,27 @@ try:
 except ImportError:
     MPI = None
 
+try:
+    import pybullet_envs
+except ImportError:
+    pybullet_envs = None
+
+try:
+    import roboschool
+except ImportError:
+    roboschool = None
+
 _game_envs = defaultdict(set)
 
 for env in gym.envs.registry.all():
-    # solve this with regexes
+    # TODO: solve this with regexes
     env_type = env._entry_point.split(':')[0].split('.')[-1]
     _game_envs[env_type].add(env.id)
 
 # reading benchmark names directly from retro requires
 # importing retro here, and for some reason that crashes tensorflow
 # in ubuntu
-_game_envs['retro'] = set([
+_game_envs['retro'] = {
     'BubbleBobble-Nes',
     'SuperMarioBros-Nes',
     'TwinBee3PokoPokoDaimaou-Nes',
@@ -43,11 +51,12 @@ _game_envs['retro'] = set([
     'Vectorman-Genesis',
     'FinalFight-Snes',
     'SpaceInvaders-Snes',
-])
+}
 
 
 def train(args, extra_args):
     env_type, env_id = get_env_type(args.env)
+    print('env_type: {}'.format(env_type))
 
     total_timesteps = int(args.num_timesteps)
     seed = args.seed
@@ -55,7 +64,13 @@ def train(args, extra_args):
     learn = get_learn_function(args.alg)
     alg_kwargs = get_learn_function_defaults(args.alg, env_type)
     alg_kwargs.update(extra_args)
-
+    # if 'nminibatches' in alg_kwargs.keys() and args.alg=='ppo2':
+    #     print('check')
+    #     if alg_kwargs['nsteps']!=2048:
+    #         alg_kwargs['nminibatches'] = args.num_env
+    #     print(alg_kwargs['nminibatches'])
+    # else:
+    #     print('not ppo, no check')
     env = build_env(args)
 
     if args.network:
@@ -63,8 +78,6 @@ def train(args, extra_args):
     else:
         if alg_kwargs.get('network') is None:
             alg_kwargs['network'] = get_default_network(env_type)
-
-
 
     print('Training {} on {}:{} with arguments \n{}'.format(args.alg, env_type, env_id, alg_kwargs))
 
@@ -87,23 +100,28 @@ def build_env(args):
     seed = args.seed
 
     env_type, env_id = get_env_type(args.env)
-    if env_type == 'mujoco':
+    if alg == 'timetest':
+        if args.num_env:
+            env = make_vec_env(env_id, env_type, nenv, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
+        else:
+            env = make_vec_env(env_id, env_type,    1, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
+
+        env = VecNormalize(env)
+    elif env_type == 'mujoco':
         get_session(tf.ConfigProto(allow_soft_placement=True,
                                    intra_op_parallelism_threads=1,
                                    inter_op_parallelism_threads=1))
 
         if args.num_env:
-            templist = [(lambda i: lambda: make_mujoco_env(env_id, seed + i if seed is not None else None, i,args.reward_scale,monitor=True if i==0 else False))(i) for i in range(args.num_env)]
-            # templist.append(lambda: make_mujoco_env(env_id, seed + args.num_env-1 if seed is not None else None, args.num_env-, args.reward_scale,monitor=True))
-            env = SubprocVecEnv(templist)
+            env = make_vec_env(env_id, env_type, nenv, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
         else:
-            env = DummyVecEnv([lambda: make_mujoco_env(env_id, seed, args.reward_scale,monitor=True)])
+            env = make_vec_env(env_id, env_type,    1, seed, reward_scale=args.reward_scale,record=args.record,play=args.play)
 
         env = VecNormalize(env)
 
     elif env_type == 'atari':
         if alg == 'acer':
-            env = make_atari_env(env_id, nenv, seed)
+            env = make_vec_env(env_id, env_type, nenv, seed)
         elif alg == 'deepq':
             env = atari_wrappers.make_atari(env_id)
             env.seed(seed)
@@ -118,27 +136,26 @@ def build_env(args):
             env.seed(seed)
         else:
             frame_stack_size = 4
-            env = VecFrameStack(make_atari_env(env_id, nenv, seed), frame_stack_size)
+            env = VecFrameStack(make_vec_env(env_id, env_type, nenv, seed), frame_stack_size)
 
     elif env_type == 'retro':
         import retro
         gamestate = args.gamestate or 'Level1-1'
-        env = retro_wrappers.make_retro(game=args.env, state=gamestate, max_episode_steps=10000, use_restricted_actions=retro.Actions.DISCRETE)
+        env = retro_wrappers.make_retro(game=args.env, state=gamestate, max_episode_steps=10000,
+                                        use_restricted_actions=retro.Actions.DISCRETE)
         env.seed(args.seed)
         env = bench.Monitor(env, logger.get_dir())
         env = retro_wrappers.wrap_deepmind_retro(env)
 
-    elif env_type == 'classic_control':
-        def make_env():
-            e = gym.make(env_id)
-            e = bench.Monitor(e, logger.get_dir(), allow_early_resets=True)
-            e.seed(seed)
-            return e
-
-        env = DummyVecEnv([make_env])
-
     else:
-        raise ValueError('Unknown env_type {}'.format(env_type))
+       get_session(tf.ConfigProto(allow_soft_placement=True,
+                                   intra_op_parallelism_threads=1,
+                                   inter_op_parallelism_threads=1))
+
+       env = make_vec_env(env_id, env_type, args.num_env or 1, seed, reward_scale=args.reward_scale)
+
+       if env_type == 'mujoco':
+           env = VecNormalize(env)
 
     return env
 
@@ -146,7 +163,7 @@ def build_env(args):
 def get_env_type(env_id):
     if env_id in _game_envs.keys():
         env_type = env_id
-        env_id =  [g for g in _game_envs[env_type]][0]
+        env_id = [g for g in _game_envs[env_type]][0]
     else:
         env_type = None
         for g, e in _game_envs.items():
@@ -157,13 +174,15 @@ def get_env_type(env_id):
 
     return env_type, env_id
 
+
 def get_default_network(env_type):
-    if env_type == 'mujoco' or env_type == 'classic_control':
-        return 'mlp'
     if env_type == 'atari':
         return 'cnn'
+    else:
+        return 'mlp'
 
     raise ValueError('Unknown env_type {}'.format(env_type))
+
 
 def get_alg_module(alg, submodule=None):
     submodule = submodule or alg
@@ -180,6 +199,7 @@ def get_alg_module(alg, submodule=None):
 def get_learn_function(alg):
     return get_alg_module(alg).learn
 
+
 def get_learn_function_defaults(alg, env_type):
     try:
         alg_defaults = get_alg_module(alg, 'defaults')
@@ -187,6 +207,7 @@ def get_learn_function_defaults(alg, env_type):
     except (ImportError, AttributeError):
         kwargs = {}
     return kwargs
+
 
 def parse(v):
     '''
@@ -206,16 +227,18 @@ def main():
     arg_parser = common_arg_parser()
     args, unknown_args = arg_parser.parse_known_args()
     extra_args = {k: parse(v) for k,v in parse_unknown_args(unknown_args).items()}
-
+    if not args.save_folder:
+        args.save_folder = 'results/'+args.alg+'_'+str(args.network)+'_'+str(args.env)+'_'+str(args.num_env)
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
-        logger.configure(dir='../results/'+args.alg+'_'+str(args.network)+'_'+str(args.env))
+        logger.configure(dir=args.save_folder)
     else:
-        logger.configure(format_strs = [])
+        logger.configure(format_strs=[])
         rank = MPI.COMM_WORLD.Get_rank()
 
-    model, _ = train(args, extra_args)
+    model, env = train(args, extra_args)
+    env.close()
 
     if args.save_path:
         if not args.play:
@@ -227,16 +250,19 @@ def main():
         logger.log("Running trained model")
         env = build_env(args)
         obs = env.reset()
+        nlstm=128 #default change if different
+        play_S = np.zeros((args.num_env,2*nlstm))
+        play_M = np.zeros((1))
         while True:
-            actions = model.step(obs)[0]
-            obs, _, done, _  = env.step(actions)
+            actions,_,play_S,_ = model.step(obs,S=play_S, M=play_M)
+            obs, _, done, _ = env.step(actions)
             env.render()
             done = done.any() if isinstance(done, np.ndarray) else done
 
             if done:
                 obs = env.reset()
 
-
+        env.close()
 
 if __name__ == '__main__':
     starttime = time.time()
