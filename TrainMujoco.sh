@@ -59,6 +59,13 @@ python -m baselines.run \
 --value_network=None \
 --record
 
+--num_timesteps=20000000 \
+--network=mlp \
+--num_env=8 \
+--env=Humanoid-v2 \
+#--env=PongNoFrameskip-v4 \
+
+
 # python -m baselines.run \
 # --alg=ppo2 \
 # --num_timesteps=$timesteps \
@@ -89,6 +96,7 @@ python -m baselines.run \
 --value_network=copy \
 --record
 
+##  acspace:  {'n': 6, 'shape': (), 'dtype': dtype('int64')}
 # python -m baselines.run \
 # --alg=acktr \
 # --num_timesteps=$timesteps \
@@ -99,8 +107,13 @@ python -m baselines.run \
 # --value_network=copy \
 # --record
 
+##  acspace:  {'low': array([-1., -1., -1.], dtype=float32), 'high': array([1., 1., 1.], dtype=float32), 'shape': (3,), 'dtype': dtype('float32')}
 # net=lstm
 
+# 1: 40% cpu 80 fps 127 s
+# 2: 50% cpu 116 fps 92 s
+# 4: 80% cpu 170 fps 62 s
+# 8: 85% cpu 180 fps 55 s
 # python -m baselines.run \
 # --alg=a2c \
 # --num_timesteps=$timesteps \

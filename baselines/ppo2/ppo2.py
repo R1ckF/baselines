@@ -39,7 +39,7 @@ class Model(object):
         vf_losses1 = tf.square(vpred - R)
         vf_losses2 = tf.square(vpredclipped - R)
         vf_loss = .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
-        ratio = tf.exp(neglogpac - OLDNEGLOGPAC)
+        ratio = tf.exp(OLDNEGLOGPAC - neglogpac)
         print("ratio: ", ratio.shape)
         pg_losses = -ADV * ratio
         pg_losses2 = -ADV * tf.clip_by_value(ratio, 1.0 - CLIPRANGE, 1.0 + CLIPRANGE)
@@ -67,6 +67,7 @@ class Model(object):
             advs = (advs - advs.mean()) / (advs.std() + 1e-8)
             td_map = {train_model.X:obs, A:actions, ADV:advs, R:returns, LR:lr,
                     CLIPRANGE:cliprange, OLDNEGLOGPAC:neglogpacs, OLDVPRED:values}
+            print(td_map)
             if states is not None:
                 td_map[train_model.S] = states
                 td_map[train_model.M] = masks
@@ -103,14 +104,19 @@ class Runner(AbstractEnvRunner):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[],[]
         mb_states = self.states
         epinfos = []
-        for _ in range(self.nsteps):
-            actions, values, self.states, neglogpacs = self.model.step(self.obs, S=self.states, M=self.dones)
+        for stepnumber in range(self.nsteps):
+            print("\n\n t: ", stepnumber)
+            print("obs: ",self.obs)
+            actions, values, self.states, neglogpacs, logits = self.model.step(self.obs, S=self.states, M=self.dones)
+            print("act,val,neglog, logits: ", actions, values, neglogpacs, logits)
+            action = [0] if (stepnumber %2==0) else [1]
+            # print("selected action: ", action)
             mb_obs.append(self.obs.copy())
-            mb_actions.append(actions)
+            mb_actions.append(action)
             mb_values.append(values)
             mb_neglogpacs.append(neglogpacs)
             mb_dones.append(self.dones)
-            self.obs[:], rewards, self.dones, infos = self.env.step(actions)
+            self.obs[:], rewards, self.dones, infos = self.env.step(action)
             for info in infos:
                 maybeepinfo = info.get('episode')
                 if maybeepinfo: epinfos.append(maybeepinfo)
@@ -130,6 +136,7 @@ class Runner(AbstractEnvRunner):
         mb_advs = np.zeros_like(mb_rewards)
         lastgaelam = 0
         for t in reversed(range(self.nsteps)):
+
             if t == self.nsteps - 1:
                 nextnonterminal = 1.0 - self.dones
                 nextvalues = last_values
@@ -222,7 +229,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     else: assert callable(cliprange)
     total_timesteps = int(total_timesteps)
     policy = build_policy(env, network, **network_kwargs)
-    nenvs = env.num_envs
+    nenvs = 1
     ob_space = env.observation_space
     ac_space = env.action_space
     nbatch = nenvs * nsteps
@@ -246,6 +253,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     tfirststart = time.time()
 
     nupdates = total_timesteps//nbatch
+    # print(nupdates)
     for update in range(1, nupdates+1):
         assert nbatch % nminibatches == 0
         tstart = time.time()
@@ -257,9 +265,11 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
         mblossvals = []
         if states is None: # nonrecurrent version
             traintime = time.time()
+            # print("Training")
             inds = np.arange(nbatch)
             for _ in range(noptepochs):
-                # np.random.shuffle(inds)
+                np.random.seed(0)
+                np.random.shuffle(inds)
                 for start in range(0, nbatch, nbatch_train):
                     end = start + nbatch_train
                     mbinds = inds[start:end]

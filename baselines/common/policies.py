@@ -49,6 +49,7 @@ class PolicyWithValue(object):
 
         self.action = self.pd.sample()
         self.neglogp = self.pd.neglogp(self.action)
+        self.logits = self.pd.logits
         self.sess = sess
 
         if estimate_q:
@@ -85,10 +86,10 @@ class PolicyWithValue(object):
         (action, value estimate, next state, negative log likelihood of the action under current policy parameters) tuple
         """
 
-        a, v, state, neglogp = self._evaluate([self.action, self.vf, self.state, self.neglogp], observation, **extra_feed)
+        a, v, state, neglogp, logits = self._evaluate([self.action, self.vf, self.state, self.neglogp, self.logits], observation, **extra_feed)
         if state.size == 0:
             state = None
-        return a, v, state, neglogp
+        return a, v, state, neglogp, logits
 
     def value(self, ob, *args, **kwargs):
         """

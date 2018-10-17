@@ -146,7 +146,7 @@ class CategoricalPd(Pd):
         # Note: we can't use sparse_softmax_cross_entropy_with_logits because
         #       the implementation does not allow second-order derivatives...
         one_hot_actions = tf.one_hot(x, self.logits.get_shape().as_list()[-1])
-        return -tf.nn.softmax_cross_entropy_with_logits_v2(
+        return tf.nn.softmax_cross_entropy_with_logits_v2(
             logits=self.logits,
             labels=one_hot_actions)
     def kl(self, other):
@@ -240,14 +240,19 @@ class BernoulliPd(Pd):
 
 def make_pdtype(ac_space):
     from gym import spaces
+    print(ac_space)
     if isinstance(ac_space, spaces.Box):
         assert len(ac_space.shape) == 1
+        print("DiagGaussianPd")
         return DiagGaussianPdType(ac_space.shape[0])
     elif isinstance(ac_space, spaces.Discrete):
+        print("CategoricalPdType")
         return CategoricalPdType(ac_space.n)
     elif isinstance(ac_space, spaces.MultiDiscrete):
+        print("MultiCategoricalPdType")
         return MultiCategoricalPdType(ac_space.nvec)
     elif isinstance(ac_space, spaces.MultiBinary):
+        print("BernoulliPdType")
         return BernoulliPdType(ac_space.n)
     else:
         raise NotImplementedError

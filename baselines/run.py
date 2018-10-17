@@ -13,7 +13,7 @@ from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, mak
 from baselines.common.tf_util import get_session
 from baselines import bench, logger
 from importlib import import_module
-
+from baselines.bench import Monitor
 from baselines.common.vec_env.vec_normalize import VecNormalize
 from baselines.common import atari_wrappers, retro_wrappers
 
@@ -72,7 +72,9 @@ def train(args, extra_args):
     # else:
     #     print('not ppo, no check')
     env = build_env(args)
-
+    # env = gym.make('CartPole-v0')
+    # env.seed(0)
+    # env = Monitor(env,logger.get_dir() and os.path.join(logger.get_dir(), str(0) + '.' + str(1)))
     if args.network:
         alg_kwargs['network'] = args.network
     else:
