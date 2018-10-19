@@ -41,14 +41,16 @@ class Model(object):
         vf_loss = .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
         ratio = tf.exp(OLDNEGLOGPAC - neglogpac)
         print("ratio: ", ratio.shape)
-        pg_losses = -ADV * ratio
-        pg_losses2 = -ADV * tf.clip_by_value(ratio, 1.0 - CLIPRANGE, 1.0 + CLIPRANGE)
-        pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
-        # pg_loss = tf.Print(pg_loss2,[vpred,R, OLDVPRED],summarize=10000)
+        pg_losses = ADV * ratio
+        pg_losses2 = ADV * tf.clip_by_value(ratio, 1.0 - CLIPRANGE, 1.0 + CLIPRANGE)
+        min = tf.minimum(pg_losses, pg_losses2)
+        pg_loss2 = -tf.reduce_mean(min)
         approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - OLDNEGLOGPAC))
         clipfrac = tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio - 1.0), CLIPRANGE)))
+        pg_loss = tf.Print(pg_loss2,[ratio, pg_losses, pg_losses2, min,  pg_loss2],summarize=10000)
         loss = pg_loss - entropy * ent_coef + vf_loss * vf_coef
-        print(loss.shape)
+        # print(loss.shape)
+        # loss = tf.Print(loss2,[ratio, pg_loss2, vf_losses1, vf_loss],summarize=10000)
         params = tf.trainable_variables('ppo2_model')
         trainer = MpiAdamOptimizer(MPI.COMM_WORLD, learning_rate=LR, epsilon=1e-5)
         grads_and_var = trainer.compute_gradients(loss, params)
@@ -67,7 +69,10 @@ class Model(object):
             advs = (advs - advs.mean()) / (advs.std() + 1e-8)
             td_map = {train_model.X:obs, A:actions, ADV:advs, R:returns, LR:lr,
                     CLIPRANGE:cliprange, OLDNEGLOGPAC:neglogpacs, OLDVPRED:values}
-            print(td_map)
+            for name, item in zip(['obs', 'values', 'actions', 'neglogpacs', 'advs', 'returns', 'lr', 'cliprange'],[obs, values, actions, neglogpacs, advs, returns, lr, cliprange]):
+                print(name,item)
+
+            # print(td_map)
             if states is not None:
                 td_map[train_model.S] = states
                 td_map[train_model.M] = masks
@@ -105,18 +110,19 @@ class Runner(AbstractEnvRunner):
         mb_states = self.states
         epinfos = []
         for stepnumber in range(self.nsteps):
-            print("\n\n t: ", stepnumber)
-            print("obs: ",self.obs)
+            # print("\n\n t: ", stepnumber)
+            # print("obs: ",self.obs)
             actions, values, self.states, neglogpacs, logits = self.model.step(self.obs, S=self.states, M=self.dones)
-            print("act,val,neglog, logits: ", actions, values, neglogpacs, logits)
+            # print("act,val,neglog, logits: ", actions, values, neglogpacs, logits)
             action = [0] if (stepnumber %2==0) else [1]
             # print("selected action: ", action)
             mb_obs.append(self.obs.copy())
-            mb_actions.append(action)
+            mb_actions.append(actions)
             mb_values.append(values)
             mb_neglogpacs.append(neglogpacs)
             mb_dones.append(self.dones)
-            self.obs[:], rewards, self.dones, infos = self.env.step(action)
+            self.obs[:], rewards, self.dones, infos = self.env.step(actions)
+            # print(self.dones)
             for info in infos:
                 maybeepinfo = info.get('episode')
                 if maybeepinfo: epinfos.append(maybeepinfo)
@@ -133,6 +139,7 @@ class Runner(AbstractEnvRunner):
         #discount/bootstrap off value fn
         mb_returns = np.zeros_like(mb_rewards)
         # print(mb_rewards, mb_values, last_values, self.gamma,self.lam)
+        # print(mb_dones)
         mb_advs = np.zeros_like(mb_rewards)
         lastgaelam = 0
         for t in reversed(range(self.nsteps)):
@@ -143,8 +150,11 @@ class Runner(AbstractEnvRunner):
             else:
                 nextnonterminal = 1.0 - mb_dones[t+1]
                 nextvalues = mb_values[t+1]
+            # print(mb_rewards[t], self.gamma ,nextvalues, nextnonterminal , mb_values[t])
             delta = mb_rewards[t] + self.gamma * nextvalues * nextnonterminal - mb_values[t]
             mb_advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
+            # print("delta: ", delta)
+            # print("lastAdv: ", lastgaelam)
         mb_returns = mb_advs + mb_values
         # print(mb_returns, mb_advs)
         return (*map(sf01, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs)),
